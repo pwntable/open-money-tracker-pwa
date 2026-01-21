@@ -10,33 +10,52 @@ let transactions = [];
 window.addEventListener('load', async () => {
   renderDate();
   
-  // 1. Load apa yang ada dalam handphone dulu (supaya laju)
+  // 1. Load data dari handphone (Local)
   await loadTransactions();
   
-  // 2. Check internet & Upload data yang pending (kalau ada)
-  API.syncAllPending();
-  
-  // 3. DOWNLOAD data baru dari Google Sheet
+  // 2. Check connection status
   const connectionStatus = document.getElementById('connection-status');
-  if(connectionStatus) connectionStatus.innerText = "Syncing...";
   
-  const hasNewData = await API.pullFromCloud();
-  
-  if (hasNewData) {
-    // Kalau ada data baru dari cloud, refresh list semula
-    await loadTransactions();
-    showToast("Data Updated from Cloud!");
-    if(connectionStatus) connectionStatus.innerText = "All caught up.";
+  // 3. Sync data (Upload pending & Download baru)
+  if (navigator.onLine) {
+    if(connectionStatus) connectionStatus.innerText = "Syncing with cloud...";
+    
+    // Upload yang pending dulu
+    await API.syncAllPending();
+    
+    // Download yang baru dari Google Sheet
+    const hasNewData = await API.pullFromCloud();
+    
+    if (hasNewData) {
+      await loadTransactions(); // Refresh list kalau ada data baru
+      showToast("Data Updated from Cloud!");
+      if(connectionStatus) connectionStatus.innerText = "All caught up.";
+    } else {
+      if(connectionStatus) connectionStatus.innerText = "Online. No new data.";
+    }
   } else {
-    if(connectionStatus) connectionStatus.innerText = "Offline / No changes.";
+    if(connectionStatus) connectionStatus.innerText = "Offline Mode";
   }
 
-  // Listen for online status
+  // Listen bila internet connect balik
   window.addEventListener('online', () => {
     API.syncAllPending();
     API.pullFromCloud().then(res => { if(res) loadTransactions(); });
   });
 });
+
+// --- FUNCTION PENTING YANG HILANG TADI ---
+async function loadTransactions() {
+  // Ambil semua data dari database
+  transactions = await DB.getAllTransactions();
+  
+  // Susun ikut tarikh (Paling baru kat atas)
+  transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  // Update paparan
+  renderList();
+  renderDashboard();
+}
 
 function renderDate() {
   const today = new Date().toISOString().split('T')[0];
@@ -53,6 +72,9 @@ window.goToPage = (id) => {
   const navMap = { 'dashboard': 'nav-stats', 'list': 'nav-list' };
   const navId = navMap[id] || 'nav-record';
   document.getElementById(navId).classList.add('active');
+  
+  // Kalau masuk page list, render semula untuk pastikan fresh
+  if (id === 'list') renderList();
 };
 
 // --- FORM HANDLING ---
@@ -64,11 +86,11 @@ window.handleSave = async (e, type) => {
   data.type = type;
   data.amount = parseFloat(data.amount);
   
-  // Save using our Offline-First API
+  // Save guna API
   await API.save(data);
   
   e.target.reset();
-  renderDate(); // reset date
+  renderDate();
   showToast("Saved!");
   
   await loadTransactions();
@@ -78,10 +100,12 @@ window.handleSave = async (e, type) => {
 // --- RENDERERS ---
 function renderList() {
   const container = document.getElementById('list-container');
+  if (!container) return; // Safety check
+  
   container.innerHTML = "";
   
   if (transactions.length === 0) {
-    container.innerHTML = '<p style="text-align:center;color:#999;margin-top:20px">No records found.</p>';
+    container.innerHTML = '<p style="text-align:center;color:#999;margin-top:50px">No records found.</p>';
     return;
   }
 
@@ -89,7 +113,8 @@ function renderList() {
     const isIncome = t.type === 'Income';
     const colorClass = isIncome ? 'amt-in' : 'amt-out';
     const sign = isIncome ? '+' : '-';
-    const syncStatus = t.synced ? '' : '<span style="color:orange; font-size:12px;">(Pending Sync)</span>';
+    // Kalau synced=1 (true), tak payah tunjuk text. Kalau 0 (false), tunjuk "Pending"
+    const syncStatus = t.synced ? '' : '<span style="color:orange; font-size:11px; font-weight:normal;">(Syncing...)</span>';
 
     const html = `
       <div class="card">
@@ -97,10 +122,10 @@ function renderList() {
           <div class="txn-left">
             <div class="txn-cat">${t.category} ${syncStatus}</div>
             <div class="txn-meta">${t.date} • ${t.platform}</div>
-            <div class="txn-meta" style="font-style:italic">${t.desc || ''}</div>
+            <div class="txn-meta" style="font-style:italic; font-size:0.75rem">${t.desc || ''}</div>
           </div>
           <div class="txn-right">
-            <div class="txn-amt ${colorClass}">${sign} RM${t.amount.toFixed(2)}</div>
+            <div class="txn-amt ${colorClass}">${sign} RM${parseFloat(t.amount).toFixed(2)}</div>
           </div>
         </div>
       </div>
@@ -110,17 +135,22 @@ function renderList() {
 }
 
 function renderDashboard() {
-  const totalInc = transactions.filter(t => t.type === 'Income').reduce((sum, t) => sum + t.amount, 0);
-  const totalExp = transactions.filter(t => t.type === 'Expense').reduce((sum, t) => sum + t.amount, 0);
+  const totalInc = transactions.filter(t => t.type === 'Income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
+  const totalExp = transactions.filter(t => t.type === 'Expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
   const bal = totalInc - totalExp;
 
-  document.getElementById('dash-balance').innerText = `RM ${bal.toFixed(2)}`;
-  document.getElementById('dash-inc').innerText = `RM ${totalInc.toFixed(2)}`;
-  document.getElementById('dash-exp').innerText = `RM ${totalExp.toFixed(2)}`;
+  const balEl = document.getElementById('dash-balance');
+  const incEl = document.getElementById('dash-inc');
+  const expEl = document.getElementById('dash-exp');
+
+  if(balEl) balEl.innerText = `RM ${bal.toFixed(2)}`;
+  if(incEl) incEl.innerText = `RM ${totalInc.toFixed(2)}`;
+  if(expEl) expEl.innerText = `RM ${totalExp.toFixed(2)}`;
 }
 
 window.showToast = (msg) => {
   const x = document.getElementById("toast");
+  if (!x) return;
   x.innerText = msg;
   x.className = "show";
   setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
