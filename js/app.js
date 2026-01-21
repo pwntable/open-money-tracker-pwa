@@ -9,22 +9,34 @@ let transactions = [];
 
 window.addEventListener('load', async () => {
   renderDate();
+  
+  // 1. Load apa yang ada dalam handphone dulu (supaya laju)
   await loadTransactions();
   
-  // Try background sync
+  // 2. Check internet & Upload data yang pending (kalau ada)
   API.syncAllPending();
   
-  // Listen for online status
-  window.addEventListener('online', () => API.syncAllPending());
-});
+  // 3. DOWNLOAD data baru dari Google Sheet
+  const connectionStatus = document.getElementById('connection-status');
+  if(connectionStatus) connectionStatus.innerText = "Syncing...";
+  
+  const hasNewData = await API.pullFromCloud();
+  
+  if (hasNewData) {
+    // Kalau ada data baru dari cloud, refresh list semula
+    await loadTransactions();
+    showToast("Data Updated from Cloud!");
+    if(connectionStatus) connectionStatus.innerText = "All caught up.";
+  } else {
+    if(connectionStatus) connectionStatus.innerText = "Offline / No changes.";
+  }
 
-async function loadTransactions() {
-  transactions = await DB.getAllTransactions();
-  // Sort by date desc
-  transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-  renderList();
-  renderDashboard();
-}
+  // Listen for online status
+  window.addEventListener('online', () => {
+    API.syncAllPending();
+    API.pullFromCloud().then(res => { if(res) loadTransactions(); });
+  });
+});
 
 function renderDate() {
   const today = new Date().toISOString().split('T')[0];
