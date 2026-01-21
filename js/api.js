@@ -15,15 +15,12 @@ const API = {
     const txn = {
       ...data,
       id: this.uuid(),
-      synced: 0 // 0 = Belum sync
+      synced: 0 
     };
-
-    await DB.addTransaction(txn); // Simpan local dulu
-    
+    await DB.addTransaction(txn);
     if (navigator.onLine) {
-      this.syncItem(txn); // Terus hantar kalau ada internet
+      this.syncItem(txn);
     }
-    
     return txn;
   },
 
@@ -31,57 +28,49 @@ const API = {
   async syncItem(txn) {
     try {
       const payload = { action: 'add', data: txn };
-      
       await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
-      // Update status jadi 'synced'
       await DB.markSynced(txn.id);
       console.log("Uploaded:", txn.id);
-      
     } catch (e) {
       console.log("Sync failed, will retry later.");
     }
   },
 
-  // 3. UPLOAD SEMUA PENDING (Push All)
+  // 3. UPLOAD SEMUA PENDING
   async syncAllPending() {
     if (!navigator.onLine) return;
     const pending = await DB.getUnsynced();
     if (pending.length === 0) return;
-    
     console.log(`Uploading ${pending.length} items...`);
     for (const txn of pending) {
       await this.syncItem(txn);
     }
   },
 
-  // 4. DOWNLOAD DARI SHEET (Pull) - INI YANG KITA TAMBAH
+  // 4. DOWNLOAD DARI SHEET (Pull)
   async pullFromCloud() {
     if (!navigator.onLine) return false;
 
     try {
       console.log("Fetching data from cloud...");
       const response = await fetch(`${API_URL}?action=get`);
-      const json = await response.json();
+      
+      // Kalau response bukan JSON, dia akan error kat sini
+      const json = await response.json(); 
+      console.log("Cloud response:", json); // Check console kalau keluar ni
 
       if (json.success && json.data.length > 0) {
-        // Masukkan setiap data dari cloud ke dalam local DB
         for (let item of json.data) {
-          // Pastikan format nombor betul
           item.amount = parseFloat(item.amount);
-          // Tandakan sebagai dah sync (sebab datang dari cloud)
           item.synced = 1; 
-          
-          // Save ke DB (akan overwrite kalau ID sama, atau tambah kalau baru)
           await DB.addTransaction(item);
         }
-        console.log("Cloud data merged.");
-        return true; // Beritahu ada data baru
+        return true; 
       }
     } catch (e) {
       console.error("Error pulling data:", e);
