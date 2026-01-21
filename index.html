@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  
+  <title>Open Money Tracker</title>
+
+  <link rel="manifest" href="manifest.json">
+  
+  <link rel="stylesheet" href="css/style.css">
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+</head>
+<body>
+
+<div class="app-container">
+
+  <div id="page-main" class="page active">
+    <div class="header">Tracker 2026</div>
+    <div class="container">
+      <div class="card">
+        <label>Select Date</label>
+        <input type="date" id="global-date">
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px;">
+        <button class="btn btn-income" onclick="goToPage('income')">
+          <span class="material-icons">arrow_downward</span> Record Income
+        </button>
+        <button class="btn btn-expense" onclick="goToPage('expense')">
+          <span class="material-icons">arrow_upward</span> Record Expense
+        </button>
+      </div>
+
+      <div style="text-align:center; margin-top:40px; color:var(--text-muted); font-size:0.8rem;">
+        <p>Keep track, stay fast.</p>
+        <small id="connection-status">Checking connection...</small>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-list" class="page">
+    <div class="header">History</div>
+    <div class="container">
+      <div id="list-container">
+        <p style="text-align:center; color:#999; margin-top:50px;">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-income" class="page">
+    <div class="header" style="background:white; color:var(--income);">New Income</div>
+    <div class="container">
+      <button class="btn btn-back" onclick="goToPage('main')">← Cancel</button>
+      
+      <form onsubmit="handleSave(event, 'Income')">
+        <div class="card">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Source</label>
+              <select name="category" required>
+                <option>MARA</option>
+                <option>Cash</option>
+                <option>Incoming Transfer</option>
+                <option>Salary</option>
+                <option>Dividends</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Amount</label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <span style="position: absolute; left: 15px; color: #94a3b8; font-weight: 600;">RM</span>
+                <input type="number" name="amount" step="0.01" min="0" required placeholder="0.00" style="padding-left: 50px;">
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Note</label>
+            <input type="text" name="desc" placeholder="Optional">
+          </div>
+          
+          <input type="hidden" name="platform" value="Income">
+          
+          <button type="submit" class="btn btn-save" style="background:var(--income)">SAVE INCOME</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="page-expense" class="page">
+    <div class="header" style="background:white; color:var(--expense);">New Expense</div>
+    <div class="container">
+      <button class="btn btn-back" onclick="goToPage('main')">← Cancel</button>
+      
+      <form onsubmit="handleSave(event, 'Expense')">
+        <div class="card">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Category</label>
+              <select name="category" required>
+                <option>Food</option>
+                <option>Transport</option>
+                <option>Personal Items</option>
+                <option>Bills</option>
+                <option>Entertainment</option>
+                <option>Phone Bill</option>
+                <option>Education</option>
+                <option>Investment</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Method</label>
+              <select name="platform" required>
+                <option>Cash</option>
+                <option>QR Pay</option>
+                <option>TnG</option>
+                <option>Debit Card</option>
+                <option>Online Transfer</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Amount</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <span style="position: absolute; left: 15px; color: #94a3b8; font-weight: 600;">RM</span>
+              <input type="number" name="amount" step="0.01" min="0" required placeholder="0.00" style="padding-left: 50px;">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Note</label>
+            <input type="text" name="desc" placeholder="Optional">
+          </div>
+          
+          <button type="submit" class="btn btn-save" style="background:var(--expense)">SAVE EXPENSE</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="page-dashboard" class="page">
+    <div class="header">Dashboard</div>
+    <div class="container">
+      <div class="hero-card">
+        <small style="opacity:0.9; font-weight:500;">Current Balance</small>
+        <h1 id="dash-balance" style="margin: 5px 0; font-size: 2.5rem;">...</h1>
+        <div style="margin-top:10px; font-size:0.85rem; opacity:0.9;">Overview</div>
+      </div>
+      
+      <div class="dashboard-grid">
+        <div class="stat-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+          <div class="stat-card">
+            <small style="color:var(--text-muted)">Income</small>
+            <div id="dash-inc" class="stat-val" style="color:var(--income)">...</div>
+          </div>
+          <div class="stat-card">
+            <small style="color:var(--text-muted)">Expense</small>
+            <div id="dash-exp" class="stat-val" style="color:var(--expense)">...</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card" style="display:none">
+        <div id="piechart_div"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottom-nav">
+  <div class="nav-inner">
+    <button id="nav-record" class="nav-item active" onclick="goToPage('main')">
+      <span class="material-icons">add_circle</span><small>Record</small>
+    </button>
+    <button id="nav-list" class="nav-item" onclick="goToPage('list')">
+      <span class="material-icons">list</span><small>List</small>
+    </button>
+    <button id="nav-stats" class="nav-item" onclick="goToPage('dashboard')">
+      <span class="material-icons">pie_chart</span><small>Stats</small>
+    </button>
+  </div>
+</div>
+
+<div id="toast">Saved!</div>
+
+<script src="js/db.js"></script>   <script src="js/api.js"></script>  <script src="js/app.js"></script>  </body>
+</html>
