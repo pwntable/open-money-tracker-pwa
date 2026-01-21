@@ -1,5 +1,5 @@
 // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
-const API_URL = "https://script.google.com/macros/s/AKfycbznwyuau5baB8Bvf8mLDe8LDGyoe4F51DwGK0c6zAf3m2zXA47IAu5-deXjckLy4ezt/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbzys5S2pqt1TLjs3XliiBtE14AqT4289JURWBsnJkdv457Z5udS8qAf-m1xr96YOdku/exec"; 
 
 const API = {
   // Generate UUID
